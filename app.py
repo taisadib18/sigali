@@ -231,22 +231,23 @@ if pagina == "📊 Painel":
     criticas_qtd = int(etapas["_critica"].sum())
 
     metricas = [
-        ("Resolvidas", pct_resolvidas),
-        ("Em andamento", em_andamento),
-        ("Em atraso", em_atraso),
-        ("Críticas", criticas_qtd),
-        ("Total de atividades", len(etapas)),
+        ("Resolvidas", pct_resolvidas, False),
+        ("Em andamento", em_andamento, False),
+        ("Em atraso", em_atraso, True),
+        ("Críticas", criticas_qtd, True),
+        ("Total de atividades", len(etapas), False),
     ]
     cards_html = "".join(
         f'<div class="sigali-metric"><div class="sigali-metric-label">{label}</div>'
-        f'<div class="sigali-metric-value">{valor}</div></div>'
-        for label, valor in metricas
+        f'<div class="sigali-metric-value{" sigali-metric-alerta" if alerta else ""}">{valor}</div></div>'
+        for label, valor, alerta in metricas
     )
     css = (
         "<style>"
         ".sigali-metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1rem;}"
         ".sigali-metric-label{font-size:0.8rem;opacity:0.65;}"
         ".sigali-metric-value{font-size:1.9rem;font-weight:700;}"
+        ".sigali-metric-alerta{color:#c0392b;font-weight:800;}"
         "@media (max-width: 767px){.sigali-metrics{grid-template-columns:repeat(2,1fr);}}"
         "</style>"
     )
