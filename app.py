@@ -60,6 +60,10 @@ def carregar(tabela: str) -> pd.DataFrame:
     if "ciclo" not in df.columns:
         df["ciclo"] = "ALI 2027"
     df["ciclo"] = df["ciclo"].fillna("ALI 2027")
+    if tabela == "etapas":
+        if "responsaveis_ids" not in df.columns:
+            df["responsaveis_ids"] = [[] for _ in range(len(df))]
+        df["responsaveis_ids"] = df["responsaveis_ids"].apply(lambda v: v if isinstance(v, list) else [])
     return df
 
 
@@ -69,6 +73,41 @@ def slugify(texto: str) -> str:
     texto = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii")
     texto = re.sub(r"[^a-zA-Z0-9]+", "-", texto).strip("-").lower()
     return texto or "ciclo"
+
+
+def nomes_por_ids(ids, responsaveis_df) -> str:
+    """Junta os nomes de uma lista de ids do catálogo num texto amigável (ex.: 'Antonio e Igor')."""
+    if not ids:
+        return ""
+    mapa = dict(zip(responsaveis_df["id"], responsaveis_df["nome"]))
+    nomes = [mapa[i] for i in ids if i in mapa]
+    if not nomes:
+        return ""
+    if len(nomes) == 1:
+        return nomes[0]
+    return ", ".join(nomes[:-1]) + " e " + nomes[-1]
+
+
+def separar_nomes_texto_livre(texto: str) -> list:
+    """Separa um texto tipo 'Antonio e Igor' ou 'Luis, Taísa e Henrique' em tokens de nome."""
+    import re
+    if not texto:
+        return []
+    partes = re.split(r"\s+e\s+|,|/", texto)
+    return [p.strip() for p in partes if p.strip()]
+
+
+def casar_nomes_com_catalogo(texto: str, responsaveis_df) -> list:
+    """Tenta casar cada nome de um texto livre com uma pessoa do catálogo (por nome exato, sem acento/maiúscula)."""
+    tokens = separar_nomes_texto_livre(texto)
+    achados = []
+    for token in tokens:
+        token_norm = slugify(token)
+        for _, r in responsaveis_df.iterrows():
+            if slugify(r["nome"]) == token_norm or slugify(r["nome"]).startswith(token_norm):
+                achados.append(r["id"])
+                break
+    return achados
 
 
 def parse_planilha_cronograma(bruto: pd.DataFrame, ciclo: str) -> list:
@@ -416,6 +455,55 @@ if pagina == "🗓️ Cronograma":
                                 st.cache_resource.clear()
                                 st.rerun()
 
+        with st.expander("🔗 Atribuir responsáveis por pessoa (recomendado — necessário para alertas)"):
+            st.caption(
+                "Aqui você escolhe pessoas de verdade do catálogo para cada atividade — cada uma com seu "
+                "próprio contato, para o alerta chegar individualmente. O texto do Cronograma (ex.: \"Antonio "
+                "e Igor\") continua existindo só para leitura rápida na tabela."
+            )
+            titulos = etapas.sort_values("data_prazo")["nome"].tolist()
+            atividade_escolhida = st.selectbox("Atividade", titulos, key="atividade_resp_individual")
+            if atividade_escolhida:
+                linha = etapas[etapas["nome"] == atividade_escolhida].iloc[0]
+                nomes_catalogo = sorted(responsaveis["nome"].tolist())
+                ids_atuais = linha.get("responsaveis_ids") or []
+                mapa_id_nome = dict(zip(responsaveis["id"], responsaveis["nome"]))
+                nomes_atuais = [mapa_id_nome[i] for i in ids_atuais if i in mapa_id_nome]
+                selecionados = st.multiselect("Pessoas responsáveis", nomes_catalogo, default=nomes_atuais, key="multiselect_resp_individual")
+                if st.button("💾 Salvar responsáveis desta atividade"):
+                    mapa_nome_id = dict(zip(responsaveis["nome"], responsaveis["id"]))
+                    novos_ids = [mapa_nome_id[n] for n in selecionados]
+                    novo_texto = nomes_por_ids(novos_ids, responsaveis) or linha["responsavel"]
+                    sb.table("etapas").update({"responsaveis_ids": novos_ids, "responsavel": novo_texto}).eq("id", linha["id"]).execute()
+                    st.success(f"Responsáveis de \"{atividade_escolhida}\" atualizados: {novo_texto or '—'}.")
+                    st.rerun()
+
+            st.divider()
+            st.caption(
+                "Ou faça de uma vez para todas as atividades deste ciclo que ainda não têm responsáveis "
+                "estruturados — o sistema tenta casar o texto atual (ex.: \"Antonio e Igor\") com nomes reais "
+                "do catálogo."
+            )
+            if st.button("🪄 Preencher automaticamente a partir do texto atual"):
+                pendentes_migrar = etapas[etapas["responsaveis_ids"].apply(len) == 0]
+                atualizadas, sem_correspondencia = 0, []
+                for _, linha in pendentes_migrar.iterrows():
+                    ids_achados = casar_nomes_com_catalogo(linha["responsavel"], responsaveis)
+                    if ids_achados:
+                        sb.table("etapas").update({"responsaveis_ids": ids_achados}).eq("id", linha["id"]).execute()
+                        atualizadas += 1
+                    else:
+                        sem_correspondencia.append(linha["nome"])
+                st.success(f"{atualizadas} atividade(s) atualizadas automaticamente.")
+                if sem_correspondencia:
+                    st.warning(
+                        f"{len(sem_correspondencia)} atividade(s) não encontraram nenhum nome correspondente "
+                        "no catálogo — revise manualmente pelo seletor acima: " + "; ".join(sem_correspondencia[:10])
+                        + ("…" if len(sem_correspondencia) > 10 else "")
+                    )
+                st.cache_resource.clear()
+                st.rerun()
+
 
 # ---------- Muniz ----------
 
@@ -514,7 +602,11 @@ if pagina == "👥 Responsáveis":
                         "email": novo_email.strip() or None,
                         "whatsapp": novo_whats.strip() or None,
                     }).execute()
-                    st.success(f"{novo_nome} adicionado(a).")
+                    st.toast(f"✅ {novo_nome} adicionado(a) ao catálogo!", icon="✅")
+                    st.session_state["novo_resp_nome"] = ""
+                    st.session_state["novo_resp_cat"] = ""
+                    st.session_state["novo_resp_email"] = ""
+                    st.session_state["novo_resp_whats"] = ""
                     st.rerun()
                 else:
                     st.warning("Informe ao menos o nome.")
