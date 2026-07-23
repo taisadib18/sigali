@@ -23,6 +23,9 @@ st.markdown(
     """<style>
     table thead tr th:first-child {display:none}
     table tbody th {display:none}
+    @media (min-width: 768px) {
+        .sigali-sub { text-align: center; }
+    }
     </style>""",
     unsafe_allow_html=True,
 )
@@ -199,8 +202,8 @@ st.markdown(
     f"""<div style="background:#1E2A38;color:#F4F1E8;padding:1.1rem 1.6rem;
     border-radius:12px;border-bottom:4px double #A6772E;margin-bottom:1.4rem;">
     <div style="font-size:1.8rem;font-weight:700;letter-spacing:.02em;text-align:center;">🏛️ SIGALI</div>
-    <div style="font-size:.82rem;opacity:.9;margin-top:.15rem;">Sistema Inteligente de Gestão da Agenda Legislativa da Indústria</div>
-    <div style="font-size:.75rem;opacity:.65;margin-top:.4rem;">
+    <div class="sigali-sub" style="font-size:.82rem;opacity:.9;margin-top:.15rem;">Sistema Inteligente de Gestão da Agenda Legislativa da Indústria</div>
+    <div class="sigali-sub" style="font-size:.75rem;opacity:.65;margin-top:.4rem;">
     Confederação Nacional da Indústria &nbsp;·&nbsp; Ciclo: <strong>{ciclo_selecionado or '—'}</strong>
     &nbsp;·&nbsp; {pagina}</div>
     </div>""",
