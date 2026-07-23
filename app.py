@@ -1,5 +1,5 @@
 """
-SIGALI - Sistema Inteligente de Gestão da Agenda Legislativa da Indústria
+SIGALI — Sistema Inteligente de Gestão da Agenda Legislativa da Indústria
 Versão auto-hospedada (Streamlit + Supabase)
 
 Como rodar localmente:
@@ -18,6 +18,14 @@ from datetime import date, datetime
 from supabase import create_client
 
 st.set_page_config(page_title="SIGALI", page_icon="🏛️", layout="wide")
+
+st.markdown(
+    """<style>
+    table thead tr th:first-child {display:none}
+    table tbody th {display:none}
+    </style>""",
+    unsafe_allow_html=True,
+)
 
 MACROETAPAS = ["Cerimônia", "Encontro", "Lançamento", "Publicação", "Quem é Quem", "Seminário", "Transversal", "Outra"]
 TIPOS_DEMANDA = ["Apresentação", "Briefing", "Evento", "Interação", "Outros", "Reunião", "Outro"]
@@ -145,14 +153,30 @@ def sincronizar(tabela: str, df_editado: pd.DataFrame, df_original: pd.DataFrame
         sb.table(tabela).upsert(registro).execute()
 
 
-# ---------- Login ----------
+# ---------- Login e navegação ----------
 
 if "perfil" not in st.session_state:
     st.session_state.perfil = "colaborador"
 
+PAGINAS = ["📊 Painel", "🗓️ Cronograma", "🚩 Muniz", "👥 Responsáveis"]
+
 with st.sidebar:
-    st.markdown("## SIGALI")
-    st.caption("Sistema Inteligente de Gestão da Agenda Legislativa da Indústria")
+    st.markdown("### 🏛️ SIGALI")
+    st.caption("Confederação Nacional da Indústria · Distrito Federal")
+    st.divider()
+    pagina = st.radio("Menu", PAGINAS, label_visibility="collapsed")
+
+is_admin = st.session_state.perfil == "admin"
+
+etapas_todas = carregar("etapas")
+responsaveis = carregar("responsaveis")
+marcos_todos = carregar("marcos")
+
+ciclos_disponiveis = sorted(etapas_todas["ciclo"].dropna().unique().tolist(), reverse=True)
+with st.sidebar:
+    st.divider()
+    ciclo_selecionado = st.selectbox("Ciclo / Agenda", ciclos_disponiveis, index=0) if ciclos_disponiveis else None
+    st.divider()
     if st.session_state.perfil == "admin":
         st.success("Modo: Administrador")
         if st.button("Sair do modo administrador"):
@@ -168,29 +192,25 @@ with st.sidebar:
             else:
                 st.error("PIN incorreto.")
 
-is_admin = st.session_state.perfil == "admin"
-
-titulo_placeholder = st.empty()
-
-etapas_todas = carregar("etapas")
-responsaveis = carregar("responsaveis")
-marcos_todos = carregar("marcos")
-
-ciclos_disponiveis = sorted(etapas_todas["ciclo"].dropna().unique().tolist(), reverse=True)
-with st.sidebar:
-    st.divider()
-    ciclo_selecionado = st.selectbox("Ciclo / Agenda", ciclos_disponiveis, index=0) if ciclos_disponiveis else None
-
 etapas = etapas_todas[etapas_todas["ciclo"] == ciclo_selecionado].copy() if ciclo_selecionado else etapas_todas.copy()
 marcos = marcos_todos[marcos_todos["ciclo"] == ciclo_selecionado].copy() if ciclo_selecionado else marcos_todos.copy()
 
-aba_painel, aba_cronograma, aba_muniz, aba_resp = st.tabs(["📊 Painel", "🗓️ Cronograma", "🚩 Muniz", "👥 Responsáveis"])
-titulo_placeholder.title(f"SIGALI — Construção {ciclo_selecionado or ''}")
+st.markdown(
+    f"""<div style="background:#1E2A38;color:#F4F1E8;padding:1.1rem 1.6rem;
+    border-radius:12px;border-bottom:4px double #A6772E;margin-bottom:1.4rem;">
+    <div style="font-size:1.5rem;font-weight:700;letter-spacing:.02em;">🏛️ SIGALI</div>
+    <div style="font-size:.82rem;opacity:.9;margin-top:.15rem;">Sistema Inteligente de Gestão da Agenda Legislativa da Indústria</div>
+    <div style="font-size:.75rem;opacity:.65;margin-top:.4rem;">
+    Confederação Nacional da Indústria &nbsp;·&nbsp; Ciclo: <strong>{ciclo_selecionado or '—'}</strong>
+    &nbsp;·&nbsp; {pagina}</div>
+    </div>""",
+    unsafe_allow_html=True,
+)
 
 
 # ---------- Painel ----------
 
-with aba_painel:
+if pagina == "📊 Painel":
     etapas["_status_efetivo"] = etapas.apply(status_efetivo, axis=1)
     etapas["_critica"] = etapas.apply(eh_critica, axis=1)
 
@@ -211,7 +231,7 @@ with aba_painel:
     col4.metric("Críticas", int(etapas["_critica"].sum()))
     col5.metric("Total de atividades", len(etapas))
 
-    st.subheader("Acompanhamento por macroetapa")
+    st.subheader("Acompanhamento por macroetapa", anchor=False)
     for m in MACROETAPAS:
         itens = etapas[etapas["macroetapa"] == m]
         if len(itens) == 0:
@@ -219,29 +239,31 @@ with aba_painel:
         conc = (itens["_status_efetivo"] == "Resolvida").sum()
         st.progress(conc / len(itens), text=f"{m} — {conc}/{len(itens)}")
 
-    st.subheader("Visão individual por responsável")
+    st.subheader("Visão individual por responsável", anchor=False)
     nomes = sorted(responsaveis["nome"].tolist())
-    pessoa = st.selectbox("Selecione uma pessoa", [""] + nomes)
+    pessoa = st.selectbox("Selecione uma pessoa", [""] + nomes, placeholder="Selecione uma pessoa")
     if pessoa:
         itens_pessoa = etapas[etapas["responsavel"].str.contains(pessoa, case=False, na=False)]
         if len(itens_pessoa):
-            st.dataframe(itens_pessoa[["nome", "responsavel", "data_prazo", "_status_efetivo"]], hide_index=True, use_container_width=True)
+            tabela = itens_pessoa[["nome", "responsavel", "data_prazo", "_status_efetivo"]].reset_index(drop=True)
+            tabela["data_prazo"] = tabela["data_prazo"].apply(lambda d: d.strftime("%d-%m-%Y") if pd.notna(d) else "")
+            st.table(tabela)
         else:
             st.caption("Nenhuma atividade encontrada para esse nome.")
 
 
 # ---------- Cronograma ----------
 
-with aba_cronograma:
+if pagina == "🗓️ Cronograma":
     with st.expander("Filtros", expanded=True):
         c1, c2, c3, c4 = st.columns(4)
-        f_resp = c1.selectbox("Responsável", [""] + sorted(etapas["responsavel"].unique().tolist()))
-        f_macro = c2.selectbox("Macroetapa", [""] + MACROETAPAS)
-        f_situacao = c3.selectbox("Situação", [""] + STATUS_OPCOES + ["Atrasada", "Crítica"])
-        f_tipo = c4.selectbox("Tipo de demanda", [""] + TIPOS_DEMANDA)
+        f_resp = c1.selectbox("Responsável", [""] + sorted(etapas["responsavel"].unique().tolist()), placeholder="Todos os responsáveis")
+        f_macro = c2.selectbox("Macroetapa", [""] + MACROETAPAS, placeholder="Todas as macroetapas")
+        f_situacao = c3.selectbox("Situação", [""] + STATUS_OPCOES + ["Atrasada", "Crítica"], placeholder="Todas as situações")
+        f_tipo = c4.selectbox("Tipo de demanda", [""] + TIPOS_DEMANDA, placeholder="Todo tipo de demanda")
         c5, c6 = st.columns(2)
-        f_de = c5.date_input("Prazo — de", value=None)
-        f_ate = c6.date_input("Prazo — até", value=None)
+        f_de = c5.date_input("Prazo — de", value=None, format="DD-MM-YYYY")
+        f_ate = c6.date_input("Prazo — até", value=None, format="DD-MM-YYYY")
         busca = st.text_input("Buscar por título ou descrição")
 
     df = etapas.copy()
@@ -265,12 +287,19 @@ with aba_cronograma:
     if is_admin:
         editado = st.data_editor(
             df_editar, num_rows="dynamic", use_container_width=True, hide_index=True,
+            column_order=["nome", "responsavel", "macroetapa", "tipo_demanda", "data_inicio", "data_prazo", "status", "sinalizado_diretor", "descricao", "observacoes"],
             column_config={
-                "macroetapa": st.column_config.SelectboxColumn(options=MACROETAPAS),
-                "tipo_demanda": st.column_config.SelectboxColumn(options=TIPOS_DEMANDA),
-                "status": st.column_config.SelectboxColumn(options=STATUS_OPCOES),
+                "nome": st.column_config.TextColumn("Atividade", width="large"),
+                "descricao": st.column_config.TextColumn("Descrição", width="large"),
+                "macroetapa": st.column_config.SelectboxColumn("Macroetapa", options=MACROETAPAS),
+                "tipo_demanda": st.column_config.SelectboxColumn("Tipo de demanda", options=TIPOS_DEMANDA),
+                "responsavel": st.column_config.TextColumn("Responsável"),
+                "status": st.column_config.SelectboxColumn("Situação", options=STATUS_OPCOES),
+                "observacoes": st.column_config.TextColumn("Observações", width="large"),
                 "sinalizado_diretor": st.column_config.CheckboxColumn("Sinalizar p/ Diretor"),
                 "id": st.column_config.TextColumn(disabled=True),
+                "data_inicio": st.column_config.DateColumn("Início", format="DD-MM-YYYY"),
+                "data_prazo": st.column_config.DateColumn("Prazo", format="DD-MM-YYYY"),
             },
             key="editor_cronograma",
         )
@@ -280,7 +309,21 @@ with aba_cronograma:
             st.cache_resource.clear()
             st.rerun()
     else:
-        st.dataframe(df_editar, use_container_width=True, hide_index=True)
+        st.dataframe(
+            df_editar, use_container_width=True, hide_index=True,
+            column_order=["nome", "responsavel", "macroetapa", "tipo_demanda", "data_inicio", "data_prazo", "status", "descricao", "observacoes"],
+            column_config={
+                "nome": st.column_config.TextColumn("Atividade", width="large"),
+                "descricao": st.column_config.TextColumn("Descrição", width="large"),
+                "macroetapa": "Macroetapa",
+                "tipo_demanda": "Tipo de demanda",
+                "responsavel": "Responsável",
+                "status": "Situação",
+                "observacoes": st.column_config.TextColumn("Observações", width="large"),
+                "data_inicio": st.column_config.DateColumn("Início", format="DD-MM-YYYY"),
+                "data_prazo": st.column_config.DateColumn("Prazo", format="DD-MM-YYYY"),
+            },
+        )
 
     if is_admin:
         with st.expander("📥 Importar nova agenda (novo ciclo, ex.: ALI 2028)"):
@@ -308,7 +351,18 @@ with aba_cronograma:
                         else:
                             novas = parse_planilha_cronograma(bruto, novo_ciclo)
                             st.write(f"Encontrei **{len(novas)}** atividades para o ciclo **{novo_ciclo}**. Confira antes de confirmar:")
-                            st.dataframe(pd.DataFrame(novas)[["id", "nome", "macroetapa", "responsavel", "data_prazo"]], use_container_width=True, hide_index=True)
+                            preview_df = pd.DataFrame(novas)[["id", "nome", "macroetapa", "responsavel", "data_prazo"]]
+                            preview_df["data_prazo"] = pd.to_datetime(preview_df["data_prazo"], errors="coerce").dt.date
+                            st.dataframe(
+                                preview_df, use_container_width=True, hide_index=True,
+                                column_order=["nome", "macroetapa", "responsavel", "data_prazo"],
+                                column_config={
+                                    "nome": st.column_config.TextColumn("Atividade", width="large"),
+                                    "macroetapa": "Macroetapa",
+                                    "responsavel": "Responsável",
+                                    "data_prazo": st.column_config.DateColumn("Prazo", format="DD-MM-YYYY"),
+                                },
+                            )
                             if novo_ciclo in ciclos_disponiveis:
                                 st.info(f"Já existe um ciclo chamado '{novo_ciclo}'. Confirmar vai atualizar/adicionar atividades dentro dele.")
                             if st.button("✅ Confirmar importação"):
@@ -321,7 +375,7 @@ with aba_cronograma:
 
 # ---------- Muniz ----------
 
-with aba_muniz:
+if pagina == "🚩 Muniz":
     if ciclo_selecionado == "ALI 2027":
         st.warning(
             "Os marcos macro abaixo vieram rotulados como do ciclo **ALI 2026** na planilha original "
@@ -329,16 +383,20 @@ with aba_muniz:
             "Revise e atualize as datas para o ciclo 2027 antes de apresentar ao Diretor."
         )
 
-    st.subheader("Marcos macro do processo")
+    st.subheader("Marcos macro do processo", anchor=False)
     marcos_diretor = marcos[marcos["manter_diretor"] == True].sort_values("data_sugerida")
     cols_marco = ["id", "status", "descricao", "data_sugerida", "observacoes", "manter_diretor"]
     if is_admin:
         marcos_editado = st.data_editor(
             marcos[cols_marco], num_rows="dynamic", use_container_width=True, hide_index=True,
+            column_order=["descricao", "data_sugerida", "status", "manter_diretor", "observacoes"],
             column_config={
-                "status": st.column_config.SelectboxColumn(options=STATUS_MARCO_OPCOES),
+                "descricao": st.column_config.TextColumn("Descrição do marco", width="large"),
+                "status": st.column_config.SelectboxColumn("Situação", options=STATUS_MARCO_OPCOES),
                 "manter_diretor": st.column_config.CheckboxColumn("Manter na aba Muniz"),
+                "observacoes": st.column_config.TextColumn("Observações", width="large"),
                 "id": st.column_config.TextColumn(disabled=True),
+                "data_sugerida": st.column_config.DateColumn("Data sugerida", format="DD-MM-YYYY"),
             },
             key="editor_marcos",
         )
@@ -347,30 +405,109 @@ with aba_muniz:
             st.success("Marcos atualizados.")
             st.rerun()
     else:
-        st.dataframe(marcos_diretor[["status", "descricao", "data_sugerida", "observacoes"]], use_container_width=True, hide_index=True)
+        st.dataframe(
+            marcos_diretor[["status", "descricao", "data_sugerida", "observacoes"]], use_container_width=True, hide_index=True,
+            column_config={
+                "status": "Situação",
+                "descricao": st.column_config.TextColumn("Descrição do marco", width="large"),
+                "observacoes": st.column_config.TextColumn("Observações", width="large"),
+                "data_sugerida": st.column_config.DateColumn("Data sugerida", format="DD-MM-YYYY"),
+            },
+        )
 
-    st.subheader("Atividades do cronograma sinalizadas para o Diretor")
+    st.subheader("Atividades do cronograma sinalizadas para o Diretor", anchor=False)
     sinalizadas = etapas[etapas["sinalizado_diretor"] == True].sort_values("data_prazo")
     if len(sinalizadas):
-        st.dataframe(sinalizadas[["nome", "macroetapa", "responsavel", "data_prazo", "status"]], use_container_width=True, hide_index=True)
+        st.dataframe(
+            sinalizadas[["nome", "macroetapa", "responsavel", "data_prazo", "status"]], use_container_width=True, hide_index=True,
+            column_config={
+                "nome": st.column_config.TextColumn("Atividade", width="large"),
+                "macroetapa": "Macroetapa",
+                "responsavel": "Responsável",
+                "status": "Situação",
+                "data_prazo": st.column_config.DateColumn("Prazo", format="DD-MM-YYYY"),
+            },
+        )
     else:
         st.caption('Nenhuma atividade sinalizada ainda. Marque "Sinalizar p/ Diretor" na aba Cronograma.')
 
 
 # ---------- Responsáveis ----------
 
-with aba_resp:
-    st.caption("Catálogo importado da planilha original. Preencha e-mail/WhatsApp/Telegram para os alertas automáticos.")
-    cols_resp = ["id", "nome", "categoria", "email", "whatsapp", "telegram_chat_id", "callmebot_apikey"]
+if pagina == "👥 Responsáveis":
+    st.caption("Diretório de pessoas e áreas. Preencha e-mail/WhatsApp/Telegram para os alertas automáticos (fase 2).")
+
+    etapas["_critica"] = etapas.apply(eh_critica, axis=1)
+    categorias_disponiveis = sorted([c for c in responsaveis["categoria"].dropna().unique().tolist() if c])
+
+    col_busca, col_cat = st.columns([2, 1])
+    busca_resp = col_busca.text_input("🔎 Buscar por nome", placeholder="Digite um nome…")
+    cat_filtro = col_cat.selectbox("Categoria", [""] + categorias_disponiveis, placeholder="Todas as categorias")
+
+    lista = responsaveis.copy()
+    if busca_resp:
+        lista = lista[lista["nome"].str.contains(busca_resp, case=False, na=False)]
+    if cat_filtro:
+        lista = lista[lista["categoria"] == cat_filtro]
+    lista = lista.sort_values("nome")
+
+    st.caption(f"{len(lista)} de {len(responsaveis)} pessoas/áreas exibidas")
+
     if is_admin:
-        resp_editado = st.data_editor(
-            responsaveis[cols_resp], num_rows="dynamic", use_container_width=True, hide_index=True,
-            column_config={"id": st.column_config.TextColumn(disabled=True)},
-            key="editor_responsaveis",
-        )
-        if st.button("💾 Salvar responsáveis"):
-            sincronizar("responsaveis", resp_editado, responsaveis[cols_resp], chave="id")
-            st.success("Responsáveis atualizados.")
-            st.rerun()
-    else:
-        st.dataframe(responsaveis[["nome", "categoria", "email", "whatsapp"]], use_container_width=True, hide_index=True)
+        with st.expander("➕ Adicionar novo responsável"):
+            novo_nome = st.text_input("Nome / Área", key="novo_resp_nome")
+            novo_cat = st.text_input("Categoria", key="novo_resp_cat", placeholder="Ex.: Área interna, Informação/SULEG…")
+            c1, c2 = st.columns(2)
+            novo_email = c1.text_input("E-mail", key="novo_resp_email")
+            novo_whats = c2.text_input("WhatsApp", key="novo_resp_whats")
+            if st.button("Adicionar", key="btn_novo_resp"):
+                if novo_nome.strip():
+                    sb.table("responsaveis").upsert({
+                        "id": f"r-{slugify(novo_nome)}",
+                        "nome": novo_nome.strip(),
+                        "categoria": novo_cat.strip() or None,
+                        "email": novo_email.strip() or None,
+                        "whatsapp": novo_whats.strip() or None,
+                    }).execute()
+                    st.success(f"{novo_nome} adicionado(a).")
+                    st.rerun()
+                else:
+                    st.warning("Informe ao menos o nome.")
+
+    if not len(lista):
+        st.caption("Nenhuma pessoa/área encontrada com esses filtros.")
+
+    for _, r in lista.iterrows():
+        contem = etapas["responsavel"].str.contains(r["nome"], case=False, na=False)
+        qtd = int(contem.sum())
+        criticas_qtd = int((contem & etapas["_critica"]).sum())
+
+        rotulo = r["nome"] + (f"  ·  {r['categoria']}" if r.get("categoria") else "")
+        with st.expander(rotulo):
+            if is_admin:
+                c1, c2 = st.columns(2)
+                email_val = c1.text_input("E-mail", value=r.get("email") or "", key=f"email_{r['id']}")
+                whats_val = c2.text_input("WhatsApp", value=r.get("whatsapp") or "", key=f"whats_{r['id']}")
+                c3, c4 = st.columns(2)
+                tg_val = c3.text_input("Telegram (chat ID)", value=r.get("telegram_chat_id") or "", key=f"tg_{r['id']}")
+                cb_val = c4.text_input("WhatsApp — chave CallMeBot", value=r.get("callmebot_apikey") or "", key=f"cb_{r['id']}")
+                cat_val = st.text_input("Categoria", value=r.get("categoria") or "", key=f"cat_{r['id']}")
+
+                col_salvar, col_excluir, col_espaco = st.columns([1, 1, 3])
+                if col_salvar.button("💾 Salvar", key=f"salvar_{r['id']}"):
+                    sb.table("responsaveis").upsert({
+                        "id": r["id"], "nome": r["nome"], "categoria": cat_val.strip() or None,
+                        "email": email_val.strip() or None, "whatsapp": whats_val.strip() or None,
+                        "telegram_chat_id": tg_val.strip() or None, "callmebot_apikey": cb_val.strip() or None,
+                    }).execute()
+                    st.success("Atualizado.")
+                    st.rerun()
+                if col_excluir.button("🗑️ Excluir", key=f"excluir_{r['id']}"):
+                    sb.table("responsaveis").delete().eq("id", r["id"]).execute()
+                    st.success("Removido.")
+                    st.rerun()
+            else:
+                st.write(f"📧 {r.get('email') or '—'}")
+                st.write(f"📱 WhatsApp: {r.get('whatsapp') or '—'}")
+
+            st.caption(f"{qtd} atividade(s) associada(s)" + (f" · {criticas_qtd} crítica(s)" if criticas_qtd else ""))
