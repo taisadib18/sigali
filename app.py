@@ -586,30 +586,37 @@ if pagina == "👥 Responsáveis":
 
     st.caption(f"{len(lista)} de {len(responsaveis)} pessoas/áreas exibidas")
 
+    def _adicionar_responsavel():
+        nome = st.session_state.get("novo_resp_nome", "").strip()
+        if not nome:
+            st.session_state["_erro_novo_resp"] = "Informe ao menos o nome."
+            return
+        sb.table("responsaveis").upsert({
+            "id": f"r-{slugify(nome)}",
+            "nome": nome,
+            "categoria": st.session_state.get("novo_resp_cat", "").strip() or None,
+            "email": st.session_state.get("novo_resp_email", "").strip() or None,
+            "whatsapp": st.session_state.get("novo_resp_whats", "").strip() or None,
+        }).execute()
+        st.session_state["_toast_novo_resp"] = f"✅ {nome} adicionado(a) ao catálogo!"
+        st.session_state["_erro_novo_resp"] = ""
+        st.session_state["novo_resp_nome"] = ""
+        st.session_state["novo_resp_cat"] = ""
+        st.session_state["novo_resp_email"] = ""
+        st.session_state["novo_resp_whats"] = ""
+
     if is_admin:
         with st.expander("➕ Adicionar novo responsável"):
-            novo_nome = st.text_input("Nome / Área", key="novo_resp_nome")
-            novo_cat = st.text_input("Categoria", key="novo_resp_cat", placeholder="Ex.: Área interna, Informação/SULEG…")
+            st.text_input("Nome / Área", key="novo_resp_nome")
+            st.text_input("Categoria", key="novo_resp_cat", placeholder="Ex.: Área interna, Informação/SULEG…")
             c1, c2 = st.columns(2)
-            novo_email = c1.text_input("E-mail", key="novo_resp_email")
-            novo_whats = c2.text_input("WhatsApp", key="novo_resp_whats")
-            if st.button("Adicionar", key="btn_novo_resp"):
-                if novo_nome.strip():
-                    sb.table("responsaveis").upsert({
-                        "id": f"r-{slugify(novo_nome)}",
-                        "nome": novo_nome.strip(),
-                        "categoria": novo_cat.strip() or None,
-                        "email": novo_email.strip() or None,
-                        "whatsapp": novo_whats.strip() or None,
-                    }).execute()
-                    st.toast(f"✅ {novo_nome} adicionado(a) ao catálogo!", icon="✅")
-                    st.session_state["novo_resp_nome"] = ""
-                    st.session_state["novo_resp_cat"] = ""
-                    st.session_state["novo_resp_email"] = ""
-                    st.session_state["novo_resp_whats"] = ""
-                    st.rerun()
-                else:
-                    st.warning("Informe ao menos o nome.")
+            c1.text_input("E-mail", key="novo_resp_email")
+            c2.text_input("WhatsApp", key="novo_resp_whats")
+            st.button("Adicionar", key="btn_novo_resp", on_click=_adicionar_responsavel)
+            if st.session_state.get("_erro_novo_resp"):
+                st.warning(st.session_state["_erro_novo_resp"])
+            if st.session_state.get("_toast_novo_resp"):
+                st.toast(st.session_state.pop("_toast_novo_resp"), icon="✅")
 
     if not len(lista):
         st.caption("Nenhuma pessoa/área encontrada com esses filtros.")
