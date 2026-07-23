@@ -175,7 +175,7 @@ marcos_todos = carregar("marcos")
 ciclos_disponiveis = sorted(etapas_todas["ciclo"].dropna().unique().tolist(), reverse=True)
 with st.sidebar:
     st.divider()
-    ciclo_selecionado = st.selectbox("Ciclo / Agenda", ciclos_disponiveis, index=0) if ciclos_disponiveis else None
+    ciclo_selecionado = st.segmented_control("Ciclo / Agenda", ciclos_disponiveis, default=ciclos_disponiveis[0], required=True) if ciclos_disponiveis else None
     st.divider()
     if st.session_state.perfil == "admin":
         st.success("Modo: Administrador")
@@ -258,9 +258,9 @@ if pagina == "🗓️ Cronograma":
     with st.expander("Filtros", expanded=True):
         c1, c2, c3, c4 = st.columns(4)
         f_resp = c1.selectbox("Responsável", [""] + sorted(etapas["responsavel"].unique().tolist()), placeholder="Todos os responsáveis")
-        f_macro = c2.selectbox("Macroetapa", [""] + MACROETAPAS, placeholder="Todas as macroetapas")
-        f_situacao = c3.selectbox("Situação", [""] + STATUS_OPCOES + ["Atrasada", "Crítica"], placeholder="Todas as situações")
-        f_tipo = c4.selectbox("Tipo de demanda", [""] + TIPOS_DEMANDA, placeholder="Todo tipo de demanda")
+        f_macro = c2.pills("Macroetapa", MACROETAPAS, selection_mode="single")
+        f_situacao = c3.pills("Situação", STATUS_OPCOES + ["Atrasada", "Crítica"], selection_mode="single")
+        f_tipo = c4.pills("Tipo de demanda", TIPOS_DEMANDA, selection_mode="single")
         c5, c6 = st.columns(2)
         f_de = c5.date_input("Prazo — de", value=None, format="DD-MM-YYYY")
         f_ate = c6.date_input("Prazo — até", value=None, format="DD-MM-YYYY")
