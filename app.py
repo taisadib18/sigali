@@ -282,7 +282,7 @@ if pagina == "🗓️ Cronograma":
     st.caption(f"{len(df)} de {len(etapas)} atividades exibidas")
 
     colunas = ["id", "nome", "descricao", "macroetapa", "tipo_demanda", "responsavel", "data_inicio", "data_prazo", "status", "sinalizado_diretor", "observacoes"]
-    df_editar = df[colunas].copy()
+    df_editar = df[colunas].reset_index(drop=True).copy()
 
     if is_admin:
         editado = st.data_editor(
@@ -351,7 +351,7 @@ if pagina == "🗓️ Cronograma":
                         else:
                             novas = parse_planilha_cronograma(bruto, novo_ciclo)
                             st.write(f"Encontrei **{len(novas)}** atividades para o ciclo **{novo_ciclo}**. Confira antes de confirmar:")
-                            preview_df = pd.DataFrame(novas)[["id", "nome", "macroetapa", "responsavel", "data_prazo"]]
+                            preview_df = pd.DataFrame(novas)[["id", "nome", "macroetapa", "responsavel", "data_prazo"]].reset_index(drop=True)
                             preview_df["data_prazo"] = pd.to_datetime(preview_df["data_prazo"], errors="coerce").dt.date
                             st.dataframe(
                                 preview_df, use_container_width=True, hide_index=True,
@@ -384,11 +384,11 @@ if pagina == "🚩 Muniz":
         )
 
     st.subheader("Marcos macro do processo", anchor=False)
-    marcos_diretor = marcos[marcos["manter_diretor"] == True].sort_values("data_sugerida")
+    marcos_diretor = marcos[marcos["manter_diretor"] == True].sort_values("data_sugerida").reset_index(drop=True)
     cols_marco = ["id", "status", "descricao", "data_sugerida", "observacoes", "manter_diretor"]
     if is_admin:
         marcos_editado = st.data_editor(
-            marcos[cols_marco], num_rows="dynamic", use_container_width=True, hide_index=True,
+            marcos[cols_marco].reset_index(drop=True), num_rows="dynamic", use_container_width=True, hide_index=True,
             column_order=["descricao", "data_sugerida", "status", "manter_diretor", "observacoes"],
             column_config={
                 "descricao": st.column_config.TextColumn("Descrição do marco", width="large"),
@@ -416,7 +416,7 @@ if pagina == "🚩 Muniz":
         )
 
     st.subheader("Atividades do cronograma sinalizadas para o Diretor", anchor=False)
-    sinalizadas = etapas[etapas["sinalizado_diretor"] == True].sort_values("data_prazo")
+    sinalizadas = etapas[etapas["sinalizado_diretor"] == True].sort_values("data_prazo").reset_index(drop=True)
     if len(sinalizadas):
         st.dataframe(
             sinalizadas[["nome", "macroetapa", "responsavel", "data_prazo", "status"]], use_container_width=True, hide_index=True,
