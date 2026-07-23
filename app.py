@@ -20,13 +20,11 @@ from supabase import create_client
 st.set_page_config(page_title="SIGALI - Sistema Inteligente de Gestão da Agenda Legislativa da Indústria", page_icon="🏛️", layout="wide")
 
 st.markdown(
-    """<style>
-    table thead tr th:first-child {display:none}
-    table tbody th {display:none}
-    @media (min-width: 768px) {
-        .sigali-sub { text-align: center; }
-    }
-    </style>""",
+    "<style>"
+    "table thead tr th:first-child{display:none}"
+    "table tbody th{display:none}"
+    "@media (min-width: 768px){.sigali-sub{text-align:center;}}"
+    "</style>",
     unsafe_allow_html=True,
 )
 
@@ -199,14 +197,14 @@ etapas = etapas_todas[etapas_todas["ciclo"] == ciclo_selecionado].copy() if cicl
 marcos = marcos_todos[marcos_todos["ciclo"] == ciclo_selecionado].copy() if ciclo_selecionado else marcos_todos.copy()
 
 st.markdown(
-    f"""<div style="background:#1E2A38;color:#F4F1E8;padding:1.1rem 1.6rem;
-    border-radius:12px;border-bottom:4px double #A6772E;margin-bottom:1.4rem;">
-    <div style="font-size:1.8rem;font-weight:700;letter-spacing:.02em;text-align:center;">🏛️ SIGALI</div>
-    <div class="sigali-sub" style="font-size:.82rem;opacity:.9;margin-top:.15rem;">Sistema Inteligente de Gestão da Agenda Legislativa da Indústria</div>
-    <div class="sigali-sub" style="font-size:.75rem;opacity:.65;margin-top:.4rem;">
-    Confederação Nacional da Indústria &nbsp;·&nbsp; Ciclo: <strong>{ciclo_selecionado or '—'}</strong>
-    &nbsp;·&nbsp; {pagina}</div>
-    </div>""",
+    f'<div style="background:#1E2A38;color:#F4F1E8;padding:1.1rem 1.6rem;'
+    f'border-radius:12px;border-bottom:4px double #A6772E;margin-bottom:1.4rem;">'
+    f'<div style="font-size:1.8rem;font-weight:700;letter-spacing:.02em;text-align:center;">🏛️ SIGALI</div>'
+    f'<div class="sigali-sub" style="font-size:.82rem;opacity:.9;margin-top:.15rem;">Sistema Inteligente de Gestão da Agenda Legislativa da Indústria</div>'
+    f'<div class="sigali-sub" style="font-size:.75rem;opacity:.65;margin-top:.4rem;">'
+    f'Confederação Nacional da Indústria &nbsp;·&nbsp; Ciclo: <strong>{ciclo_selecionado or "—"}</strong>'
+    f'&nbsp;·&nbsp; {pagina}</div>'
+    f'</div>',
     unsafe_allow_html=True,
 )
 
@@ -244,18 +242,15 @@ if pagina == "📊 Painel":
         f'<div class="sigali-metric-value">{valor}</div></div>'
         for label, valor in metricas
     )
-    st.markdown(
-        f"""<style>
-        .sigali-metrics {{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 1rem; }}
-        .sigali-metric-label {{ font-size: 0.8rem; opacity: 0.65; }}
-        .sigali-metric-value {{ font-size: 1.9rem; font-weight: 700; }}
-        @media (max-width: 767px) {{
-            .sigali-metrics {{ grid-template-columns: repeat(2, 1fr); }}
-        }}
-        </style>
-        <div class="sigali-metrics">{cards_html}</div>""",
-        unsafe_allow_html=True,
+    css = (
+        "<style>"
+        ".sigali-metrics{display:grid;grid-template-columns:repeat(5,1fr);gap:1rem;margin-bottom:1rem;}"
+        ".sigali-metric-label{font-size:0.8rem;opacity:0.65;}"
+        ".sigali-metric-value{font-size:1.9rem;font-weight:700;}"
+        "@media (max-width: 767px){.sigali-metrics{grid-template-columns:repeat(2,1fr);}}"
+        "</style>"
     )
+    st.markdown(f'{css}<div class="sigali-metrics">{cards_html}</div>', unsafe_allow_html=True)
 
     st.subheader("Acompanhamento por macroetapa", anchor=False)
     for m in MACROETAPAS:
