@@ -24,13 +24,6 @@ st.markdown(
     "table thead tr th:first-child{display:none}"
     "table tbody th{display:none}"
     "@media (min-width: 768px){.sigali-sub{text-align:center;}}"
-    '[data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"], '
-    '[data-testid="stSidebarCollapseButton"], button[kind="header"], '
-    '[data-testid="stExpandSidebarButton"]{display:flex!important;align-items:center;gap:5px;}'
-    '[data-testid="collapsedControl"]::before, [data-testid="stSidebarCollapsedControl"]::before, '
-    '[data-testid="stSidebarCollapseButton"]::before, button[kind="header"]::before, '
-    '[data-testid="stExpandSidebarButton"]::before{'
-    'content:"MENU";font-size:0.7rem;font-weight:700;letter-spacing:0.03em;opacity:0.75;order:-1;}'
     "</style>",
     unsafe_allow_html=True,
 )
