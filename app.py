@@ -113,7 +113,7 @@ with st.sidebar:
 
 is_admin = st.session_state.perfil == "admin"
 
-st.title("SIGALI — Construção ALI 2027")
+st.title("SIGALI - Sistema Inteligente de Gestão da Agenda Legislativa da Indústria")
 
 etapas = carregar("etapas")
 responsaveis = carregar("responsaveis")
