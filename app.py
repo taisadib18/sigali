@@ -24,6 +24,11 @@ st.markdown(
     "table thead tr th:first-child{display:none}"
     "table tbody th{display:none}"
     "@media (min-width: 768px){.sigali-sub{text-align:center;}}"
+    '[data-testid="collapsedControl"], [data-testid="stSidebarCollapsedControl"], '
+    '[data-testid="stSidebarCollapseButton"]{display:flex!important;align-items:center;gap:5px;}'
+    '[data-testid="collapsedControl"]::after, [data-testid="stSidebarCollapsedControl"]::after, '
+    '[data-testid="stSidebarCollapseButton"]::after{'
+    'content:"MENU";font-size:0.7rem;font-weight:700;letter-spacing:0.03em;opacity:0.75;}'
     "</style>",
     unsafe_allow_html=True,
 )
@@ -278,10 +283,21 @@ if pagina == "📊 Painel":
 
 if pagina == "🗓️ Cronograma":
     with st.expander("Filtros", expanded=True):
+        st.markdown(
+            "<style>"
+            "@media (min-width: 768px){.st-key-filtro-situacao{"
+            "border-left:1px solid rgba(128,128,128,0.4);"
+            "border-right:1px solid rgba(128,128,128,0.4);"
+            "padding:0 1.2rem;}}"
+            "</style>",
+            unsafe_allow_html=True,
+        )
         c1, c2, c3, c4 = st.columns(4)
         f_resp = c1.selectbox("Responsável", [""] + sorted(etapas["responsavel"].unique().tolist()), placeholder="Todos os responsáveis")
         f_macro = c2.pills("Macroetapa", MACROETAPAS, selection_mode="single")
-        f_situacao = c3.pills("Situação", STATUS_OPCOES + ["Atrasada", "Crítica"], selection_mode="single")
+        with c3:
+            with st.container(key="filtro-situacao"):
+                f_situacao = st.pills("Situação", STATUS_OPCOES + ["Atrasada", "Crítica"], selection_mode="single")
         f_tipo = c4.pills("Tipo de demanda", TIPOS_DEMANDA, selection_mode="single")
         c5, c6 = st.columns(2)
         f_de = c5.date_input("Prazo — de", value=None, format="DD-MM-YYYY")
@@ -467,12 +483,13 @@ if pagina == "👥 Responsáveis":
     categorias_disponiveis = sorted([c for c in responsaveis["categoria"].dropna().unique().tolist() if c])
 
     col_busca, col_cat = st.columns([2, 1])
-    busca_resp = col_busca.text_input("🔎 Buscar por nome", placeholder="Digite um nome…")
+    nomes_disponiveis = sorted(responsaveis["nome"].dropna().unique().tolist())
+    busca_resp = col_busca.selectbox("Selecionar por nome", [""] + nomes_disponiveis, placeholder="Todos os nomes")
     cat_filtro = col_cat.selectbox("Categoria", [""] + categorias_disponiveis, placeholder="Todas as categorias")
 
     lista = responsaveis.copy()
     if busca_resp:
-        lista = lista[lista["nome"].str.contains(busca_resp, case=False, na=False)]
+        lista = lista[lista["nome"] == busca_resp]
     if cat_filtro:
         lista = lista[lista["categoria"] == cat_filtro]
     lista = lista.sort_values("nome")
@@ -537,3 +554,15 @@ if pagina == "👥 Responsáveis":
                 st.write(f"📱 WhatsApp: {r.get('whatsapp') or '—'}")
 
             st.caption(f"{qtd} atividade(s) associada(s)" + (f" · {criticas_qtd} crítica(s)" if criticas_qtd else ""))
+
+
+# ---------- Rodapé ----------
+
+st.markdown(
+    "<div style='text-align:center;opacity:0.55;font-size:0.72rem;margin-top:2.5rem;padding-top:0.8rem;"
+    "border-top:1px solid rgba(128,128,128,0.25);'>"
+    "Desenvolvido por <a href='mailto:trosa@cni.com.br' style='color:inherit;text-decoration:underline;'>"
+    "Taísa Dib de Barros Rosa</a></div>",
+    unsafe_allow_html=True,
+)
+
