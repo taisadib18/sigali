@@ -225,14 +225,37 @@ if pagina == "📊 Painel":
             rotulo = f"atrasada há {abs(d)} dia(s)" if r["_status_efetivo"] == "Atrasada" else ("vence hoje" if d == 0 else f"vence em {d} dia(s)")
             st.markdown(f"- **{r['nome']}** — {r['responsavel']}  ·  :red[{rotulo}]")
 
-    col1, col2, col3, col4, col5 = st.columns(5)
     total = len(etapas) or 1
     concluidas = (etapas["_status_efetivo"] == "Resolvida").sum()
-    col1.metric("Resolvidas", f"{round(100*concluidas/total)}%")
-    col2.metric("Em andamento", int((etapas["_status_efetivo"] == "Em andamento").sum()))
-    col3.metric("Em atraso", int((etapas["_status_efetivo"] == "Atrasada").sum()))
-    col4.metric("Críticas", int(etapas["_critica"].sum()))
-    col5.metric("Total de atividades", len(etapas))
+    pct_resolvidas = f"{round(100*concluidas/total)}%"
+    em_andamento = int((etapas["_status_efetivo"] == "Em andamento").sum())
+    em_atraso = int((etapas["_status_efetivo"] == "Atrasada").sum())
+    criticas_qtd = int(etapas["_critica"].sum())
+
+    metricas = [
+        ("Resolvidas", pct_resolvidas),
+        ("Em andamento", em_andamento),
+        ("Em atraso", em_atraso),
+        ("Críticas", criticas_qtd),
+        ("Total de atividades", len(etapas)),
+    ]
+    cards_html = "".join(
+        f'<div class="sigali-metric"><div class="sigali-metric-label">{label}</div>'
+        f'<div class="sigali-metric-value">{valor}</div></div>'
+        for label, valor in metricas
+    )
+    st.markdown(
+        f"""<style>
+        .sigali-metrics {{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 1rem; }}
+        .sigali-metric-label {{ font-size: 0.8rem; opacity: 0.65; }}
+        .sigali-metric-value {{ font-size: 1.9rem; font-weight: 700; }}
+        @media (max-width: 767px) {{
+            .sigali-metrics {{ grid-template-columns: repeat(2, 1fr); }}
+        }}
+        </style>
+        <div class="sigali-metrics">{cards_html}</div>""",
+        unsafe_allow_html=True,
+    )
 
     st.subheader("Acompanhamento por macroetapa", anchor=False)
     for m in MACROETAPAS:
@@ -312,21 +335,25 @@ if pagina == "🗓️ Cronograma":
             st.cache_resource.clear()
             st.rerun()
     else:
-        st.dataframe(
-            df_editar, use_container_width=True, hide_index=True,
-            column_order=["nome", "responsavel", "macroetapa", "tipo_demanda", "data_inicio", "data_prazo", "status", "descricao", "observacoes"],
-            column_config={
-                "nome": st.column_config.TextColumn("Atividade", width="large"),
-                "descricao": st.column_config.TextColumn("Descrição", width="large"),
-                "macroetapa": "Macroetapa",
-                "tipo_demanda": "Tipo de demanda",
-                "responsavel": "Responsável",
-                "status": "Situação",
-                "observacoes": st.column_config.TextColumn("Observações", width="large"),
-                "data_inicio": st.column_config.DateColumn("Início", format="DD-MM-YYYY"),
-                "data_prazo": st.column_config.DateColumn("Prazo", format="DD-MM-YYYY"),
-            },
-        )
+        filtro_ativo = bool(f_resp or f_macro or f_tipo or f_situacao or f_de or f_ate or busca)
+        if not filtro_ativo:
+            st.info("Use os filtros acima para ver as atividades — a lista completa (204 itens) fica escondida até você filtrar, para deixar a tela mais limpa.")
+        else:
+            st.dataframe(
+                df_editar, use_container_width=True, hide_index=True,
+                column_order=["nome", "responsavel", "macroetapa", "tipo_demanda", "data_inicio", "data_prazo", "status", "descricao", "observacoes"],
+                column_config={
+                    "nome": st.column_config.TextColumn("Atividade", width="large"),
+                    "descricao": st.column_config.TextColumn("Descrição", width="large"),
+                    "macroetapa": "Macroetapa",
+                    "tipo_demanda": "Tipo de demanda",
+                    "responsavel": "Responsável",
+                    "status": "Situação",
+                    "observacoes": st.column_config.TextColumn("Observações", width="large"),
+                    "data_inicio": st.column_config.DateColumn("Início", format="DD-MM-YYYY"),
+                    "data_prazo": st.column_config.DateColumn("Prazo", format="DD-MM-YYYY"),
+                },
+            )
 
     if is_admin:
         with st.expander("📥 Importar nova agenda (novo ciclo, ex.: ALI 2028)"):
